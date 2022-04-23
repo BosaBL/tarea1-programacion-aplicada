@@ -1,190 +1,402 @@
+from cProfile import label
+from cgitb import text
+from turtle import title, update
+from click import style
+from numpy import diag_indices_from
 import wx
 import wx.grid as gridlib
 import wx.lib.masked as masked
-from wx.grid import GridCellAutoWrapStringRenderer
 
-from controller.DatabaseController import DatabaseController
+
 from controller.ClientController import ClientController
+from controller.DatabaseController import DatabaseController
 from controller.NodeListController import NodeListController
 
 
-class Maintainer(wx.Frame):
+class App(wx.App):
     def __init__(self):
-        
-        # Controladores los cuales son usados por la Vista
+        wx.App.__init__(self)
+
+        MainFrame()
+
+        self.MainLoop()
+
+
+# Main Frame
+class MainFrame(wx.Frame):
+    def __init__(self):
+        wx.Frame.__init__(self, None, title="Client Maintainer", size=(500, 600))
+
+        self.__panelSplitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
+        self.__panelSplitter.SetSashInvisible(True)
+
+        self.clientListPanel = ClientListPanel(self.__panelSplitter)
+        self.clientListControlPanel = ClientListControlPanel(
+            self.__panelSplitter, self.clientListPanel
+        )
+
+        self.__panelSplitter.SplitHorizontally(
+            self.clientListPanel, self.clientListControlPanel
+        )
+
+        self.__panelSplitter.SetMinimumPaneSize(300)
+
+        self.__sizer = wx.BoxSizer(wx.VERTICAL)
+        self.__sizer.Add(self.__panelSplitter, 0, wx.EXPAND | wx.ALL | wx.BOTTOM, 3)
+        h_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        h_sizer.AddSpacer(3)
+
+        self.__sizer.Add(h_sizer)
+        self.SetSizer(self.__sizer)
+
+        self.Show()
+
+
+class ClientListPanel(wx.Panel):
+    def __init__(self, parent):
+        wx.Panel.__init__(self, parent=parent)
+
+        # Setting font for better readability
+        self.__font = wx.Font(
+            10,
+            family=wx.FONTFAMILY_MODERN,
+            style=0,
+            weight=90,
+            underline=False,
+            faceName="",
+            encoding=wx.FONTENCODING_DEFAULT,
+        )
+
+        # Controllers used for displaying the client on the grid, they must be public for later usage
         self.databaseController = DatabaseController()
-        self.clientController = ClientController()
         self.nodeListController = NodeListController()
+        self.clientController = ClientController()
         self.databaseController.populateDatabase()
         self.clientList = self.databaseController.getClient("clients.csv")
-        
-        # Ventana principal: Tiene  un nombre, un estilo por defecto 
-        # (no se puede maximizar y cambiar el tamanho
-        # Tiene un tamnho de 800x600
-        wx.Frame.__init__(self, None, title="Mantenedor de Clientes", style = wx.DEFAULT_FRAME_STYLE & ~(wx.RESIZE_BORDER | wx.MAXIMIZE_BOX),size=(800,600))
-        
-        # Un panel donde seran compuestos los widgets
-        self.panel = wx.Panel(self)
-        
-        # Una barra de estado en el fondo de la ventana principal
-        self.CreateStatusBar()
-        # Se crea un menu pequenho
-        filemenu= wx.Menu()
-        # Se crea un separador
-        filemenu.AppendSeparator()
-        # Entrada de menu para salir de la aplicacion
-        menuExit = filemenu.Append(wx.ID_EXIT,"E&xit"," Terminate the program")
-        # Entrada de menu para mostrar informacion sobre la aplicacion
-        menuAbout = filemenu.Append(wx.ID_ABOUT, "&About"," Information about this program")
-        # Se enlazan las entradas del menu con acciones representadas por metodos
-        self.Bind(wx.EVT_MENU, self.OnAbout, menuAbout)
-        self.Bind(wx.EVT_MENU, self.OnExit, menuExit)
-        self.Show(True)
-        # Se crea una barra de menu donde ira el menu crado
-        menuBar = wx.MenuBar()
-        # Se adicionan los menus
-        menuBar.Append(filemenu,"&File") # Adding the "filemenu" to the MenuBar
-        # Se adiciona la barra del menu en la ventana principal
-        self.SetMenuBar(menuBar)  # Adding the MenuBar to the Frame content.
-        
-        # Se crean los controles (widgets) en el panel de la ventana principal
-        # StaticBox: un panel con nombre para agrupar controles 
-        # StaticText: Labels o etiquetas
-        # TextCtrl: Entradas de texto para ingresa la informacion
-        # masked: enmascarar la entrada de texto
-        self.box1 = wx.StaticBox(self.panel, wx.ID_ANY, "Ingresar Cliente", pos=(10,0),size=(790, 100))
-        self.lbl1 = wx.StaticText(self.box1, -1, 'DNI:', pos =(10,25))
-        self.txt1 = masked.TextCtrl(self.box1, style=wx.TE_LEFT, size=(120, 25), name = "txt1", pos = (50,23),  mask = '##.###.###-#')
-        self.lbl2 = wx.StaticText(self.box1, -1, 'Nombre:', pos =(180,25))
-        self.txt2 = wx.TextCtrl(self.box1, style=wx.TE_LEFT, size=(250, 25), name = "txt2", pos = (245,23))
-        self.btn1 = wx.Button(self.box1, label = "Guardar", size=(100, 25), pos=(505,23)) 
-        
-        self.box2 = wx.StaticBox(self.panel, wx.ID_ANY, "Buscar Cliente", pos=(5,105),size=(790, 100))
-        self.lbl2 = wx.StaticText(self.box2, -1, 'DNI:', pos =(10,25))
-        self.txt3 = masked.TextCtrl(self.box2, style=wx.TE_LEFT, size=(120, 25), name = "txt3", pos = (50,23),  mask = '##.###.###-#')
-        self.btn2 = wx.Button(self.box2, label = "Buscar", size=(100, 25), pos=(180,23)) 
-        
-        self.box3 = wx.StaticBox(self.panel, wx.ID_ANY, "Eliminar Cliente", pos=(5,205),size=(790, 100))
-        self.lbl3 = wx.StaticText(self.box3, -1, 'DNI:', pos =(10,25))
-        self.txt4 = masked.TextCtrl(self.box3, style=wx.TE_LEFT, size=(120, 25), name = "txt4", pos = (50,23),  mask = '##.###.###-#')
-        self.btn3 = wx.Button(self.box3, label = "Eliminar", size=(100, 25), pos=(180,23)) 
-        
-        # Se crea una grilla sobre el panel para mostrar los datos
-        self.grid = gridlib.Grid(self.panel,-1,pos=(5,320))
-        self.grid.SetDefaultRenderer(GridCellAutoWrapStringRenderer())
-        # La grilla tendrá un total de filas igual al total de datos de la lista y dos columnas
-        total = len(self.clientList.printList())
-        self.grid.CreateGrid(total, 2)
-        # Se crean los nombres de las columnas
-        self.grid.SetColLabelValue(0, "DNI")
-        self.grid.SetColLabelValue(1, "Nombre")
-        # Si la lista es vacia, entonces crear una fila vacia
-        if len(self.clientList.printList()) ==0:
-            self.grid.SetCellValue(0,0,"Empty")
-            self.grid.SetCellValue(0,1,"Empty")
-        else:
-            # Si la lista no esta vacia llenarla usando el metodo loadData()
-            self.loadData()
-        
-        # Ancho de las columnas
-        self.grid.SetColSize(0, 120)        
-        self.grid.SetColSize(1, 470)
 
-        # Adicionar los controles en un BoxSizer (layout) para organizar de forma vertical
-        self.sizer = wx.BoxSizer(wx.VERTICAL)
-        self.sizer.Add(self.box1, 0, wx.TOP|wx.BOTTOM|wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.sizer.Add(self.box2, 0, wx.TOP|wx.BOTTOM|wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.sizer.Add(self.box3, 0, wx.TOP|wx.BOTTOM|wx.ALIGN_CENTER_HORIZONTAL, 5)
-        self.sizer.Add(self.grid, 4, wx.EXPAND )
-        self.panel.SetSizer(self.sizer) 
-     
-     
-        # Eventos de Botones (Guardar, Buscar y Eliminar)
-        self.btn1.Bind(wx.EVT_BUTTON, self.OnSaveClient)
-        self.btn2.Bind(wx.EVT_BUTTON, self.OnSearchClient)
-        self.btn3.Bind(wx.EVT_BUTTON, self.OnDeleteClient)
-   
-    # Metodo para guardar cliente
-    def OnSaveClient(self,e):
-        # Verificar si el nombre no esta vacio. 
-        # Se debe verificar que el DNI tampoco este vacio (Implementar)
-        if self.txt2.GetLineLength(0) == 0: 
-            # Crear un dialogo  
-            dls= wx.MessageDialog( self, "El nombre no puede estar vacio", "Dialogo", wx.OK)
-            # Mostrarlo
-            dls.ShowModal()
-            # Eliminarlo 
-            dls.Destroy() 
+        # Setting up grid
+        self.__clientGrid = gridlib.Grid(self)
+        self.__clientGrid.CreateGrid(0, 2)
+        self.__clientGrid.SetRowLabelSize(0)
+        self.__clientGrid.SetColLabelValue(0, "Nombre")
+        self.__clientGrid.SetColLabelValue(1, "D.N.I")
+        self.__clientGrid.EnableDragColSize(False)
+        self.__clientGrid.SetColLabelAlignment(
+            horiz=wx.ALIGN_CENTRE, vert=wx.ALIGN_CENTRE
+        )
+        self.__clientGrid.SetDefaultCellAlignment(horiz=wx.LEFT, vert=wx.ALIGN_BOTTOM)
+        self.__clientGrid.SetDefaultCellFont(self.__font)
+
+        self.loadClients()
+
+        # Resizing rows and columns to fit its content (not time efficient as it needs to re-iterate the grid)
+        self.__clientGrid.AutoSizeColumns()
+        self.__clientGrid.AutoSizeRows()
+
+        # Sizing grid to the panel size.
+        self.__sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.__sizer.Add(self.__clientGrid, 1, wx.EXPAND | wx.ALL)
+        self.SetSizer(self.__sizer)
+
+    # Loading clients on the grid.
+    def loadClients(self):
+        self.clearClients()
+        if self.clientList:
+            self.__clientGrid.AppendRows(numRows=len(self.clientList.printList()))
+            for idx, client in enumerate(self.clientList.printList()):
+                self.__clientGrid.SetCellValue(idx, 0, client.getName())
+                self.__clientGrid.SetCellValue(idx, 1, client.getDni())
+                self.__clientGrid.AutoSizeRow(idx)
         else:
-            # Si el tamanho del nombre es mayor  a cero, guardarlo
-            self.clientList.addNode(self.clientController.createClient(self.txt1.GetLineText(0).replace('.',''),self.txt2.GetLineText(0)))
-            # Limpiar la grilla
-            self.grid.ClearGrid()
-            # Eliminar todas las filas
-            self.grid.DeleteRows(pos=0, numRows=self.grid.GetNumberRows(), updateLabels=True)
-            # Insertar la cantidad de filas de acuerdo al numero de datos de la lista
-            self.grid.InsertRows(pos=0, numRows=len(self.clientList.printList()), updateLabels=True)
-            # Llenar la grilla con los datos actualizados
-            self.loadData()
-            dls= wx.MessageDialog( self, 'Cliente Guardado!', "Dialogo", wx.OK)
-            dls.ShowModal() 
-            dls.Destroy()
-        # Limpiar las entradas de texto 
-        self.txt1.Clear()
-        self.txt2.Clear()
-    
-    # Buscar un cliente
-    def OnSearchClient(self,e):
-        # Se asume que la grilla esta en sincronia con la lista
-        # Por lo tanto solo se hace una busqueda en la grilla, recorriendo la columna DNI
-        for row in range(0,self.grid.GetNumberRows()):
-            item = self.grid.GetCellValue(row, 0)
-            # Si el DNI del cliente es igual al DNI buscado
-            if item == self.txt3.GetLineText(0).replace('.',''):
-                dls= wx.MessageDialog( self, 'El cliente se encuentra en la fila '+ str(row+1) , "Dialogo", wx.OK)
-                dls.ShowModal()
-                dls.Destroy()
+            self.__clientGrid.AppendRows(numRows=1)
+            self.__clientGrid.SetCellValue(0, 0, "Empty List")
+            self.__clientGrid.SetCellValue(0, 1, "EmptyList")
+
+    def clearClients(self):
+        if self.__clientGrid.GetNumberRows() != 0:
+            self.__clientGrid.DeleteRows(0, self.__clientGrid.GetNumberRows())
+
+
+class ClientListControlPanel(wx.Panel):
+    def __init__(self, parent, listPanel):
+        wx.Panel.__init__(self, parent=parent)
+
+        self.__listPanel = listPanel
+
+        self.__font = wx.Font(
+            10,
+            family=wx.FONTFAMILY_MODERN,
+            style=1,
+            weight=90,
+            underline=False,
+            faceName="",
+            encoding=wx.FONTENCODING_DEFAULT,
+        )
+        self.SetFont(self.__font)
+
+        self.__gridsizer = wx.GridBagSizer(5, 5)
+
+        # Add Client
+        self.__ClientBox = wx.StaticBox(self, label="Añadir Cliente")
+        self.__ClientBoxSizer = wx.StaticBoxSizer(self.__ClientBox, wx.VERTICAL)
+        self.__ClientBoxGrid = wx.GridBagSizer(6, 6)
+        self.__ClientBoxGrid.Add(
+            wx.StaticText(self, label="NOMBRE:"), pos=(0, 0), flag=wx.ALIGN_CENTER
+        )
+        self.__nameAddEntry = wx.TextCtrl(
+            self, style=wx.TE_LEFT, name="nameAddEntry", size=(150, 20)
+        )
+        self.__ClientBoxGrid.Add(
+            self.__nameAddEntry,
+            pos=(0, 1),
+        )
+        self.__ClientBoxGrid.Add(
+            wx.StaticText(self, label="DNI:"),
+            pos=(1, 0),
+            flag=wx.ALIGN_RIGHT,
+        )
+        self.__dniAddEntry = masked.TextCtrl(
+            self,
+            style=wx.TE_LEFT,
+            name="dniAddEntry",
+            mask="########-#",
+        )
+        self.__ClientBoxGrid.Add(
+            self.__dniAddEntry,
+            pos=(1, 1),
+        )
+        self.__addButton = wx.Button(self, label="Añadir")
+        self.__ClientBoxGrid.Add(self.__addButton, pos=(2, 1), flag=wx.ALIGN_RIGHT)
+
+        self.__ClientBoxSizer.Add(self.__ClientBoxGrid)
+        self.__gridsizer.Add(self.__ClientBoxSizer, pos=(1, 1), flag=wx.EXPAND | wx.ALL)
+
+        # Search Client
+        self.__SearchClientBox = wx.StaticBox(self, label="Buscar Cliente")
+        self.__SearchClientBoxSizer = wx.StaticBoxSizer(
+            self.__SearchClientBox, wx.VERTICAL
+        )
+        self.__SearchClientBoxGrid = wx.GridBagSizer(6, 6)
+        self.__SearchClientBoxGrid.Add(
+            wx.StaticText(self, label="DNI:"),
+            pos=(0, 0),
+            flag=wx.ALIGN_CENTER,
+        )
+        self.__dniSearchEntry = masked.TextCtrl(
+            self,
+            style=wx.TE_LEFT,
+            name="dniSearchEntry",
+            mask="########-#",
+        )
+        self.__SearchClientBoxGrid.Add(
+            self.__dniSearchEntry,
+            pos=(0, 1),
+        )
+        self.__searchButton = wx.Button(self, label="Buscar")
+        self.__SearchClientBoxGrid.Add(
+            self.__searchButton, pos=(2, 1), flag=wx.ALIGN_RIGHT
+        )
+
+        self.__SearchClientBoxSizer.Add(self.__SearchClientBoxGrid)
+        self.__gridsizer.Add(
+            self.__SearchClientBoxSizer, pos=(1, 2), flag=wx.EXPAND | wx.ALL
+        )
+
+        # Delete Client
+        self.__DeleteClientBox = wx.StaticBox(self, label="Eliminar Cliente")
+        self.__DeleteClientBoxSizer = wx.StaticBoxSizer(
+            self.__DeleteClientBox, wx.VERTICAL
+        )
+        self.__DeleteClientBoxGrid = wx.GridBagSizer(6, 6)
+        self.__DeleteClientBoxGrid.Add(
+            wx.StaticText(self, label="DNI:"),
+            pos=(0, 0),
+            flag=wx.ALIGN_CENTER,
+        )
+        self.__dniDeleteEntry = masked.TextCtrl(
+            self,
+            style=wx.TE_LEFT,
+            name="dniDeleteEntry",
+            mask="########-#",
+        )
+        self.__DeleteClientBoxGrid.Add(
+            self.__dniDeleteEntry,
+            pos=(0, 1),
+        )
+        self.__deleteButton = wx.Button(self, label="Eliminar")
+        self.__DeleteClientBoxGrid.Add(
+            self.__deleteButton, pos=(2, 1), flag=wx.ALIGN_RIGHT
+        )
+
+        self.__DeleteClientBoxSizer.Add(self.__DeleteClientBoxGrid)
+        self.__gridsizer.Add(self.__DeleteClientBoxSizer, pos=(2, 1), flag=wx.CENTER)
+
+        self.SetSizer(self.__gridsizer)
+
+        # Change Client Name
+        self.__ChangeNameBox = wx.StaticBox(self, label="Actualizar Cliente")
+        self.__ChangeNameBoxSizer = wx.StaticBoxSizer(self.__ChangeNameBox, wx.VERTICAL)
+        self.__ChangeNameBoxGrid = wx.GridBagSizer(6, 6)
+
+        self.__dniChangeNameEntry = masked.TextCtrl(
+            self, style=wx.TE_LEFT, name="dniChangeNameEntry", mask="########-#"
+        )
+
+        self.__ChangeNameBoxGrid.Add(
+            wx.StaticText(self, label="DNI:"),
+            pos=(0, 0),
+            flag=wx.ALIGN_CENTER,
+        )
+
+        self.__ChangeNameBoxGrid.Add(
+            self.__dniChangeNameEntry,
+            pos=(0, 1),
+        )
+        self.__changeNameButton = wx.Button(self, label="Cambiar")
+        self.__ChangeNameBoxGrid.Add(
+            self.__changeNameButton, pos=(2, 1), flag=wx.ALIGN_RIGHT
+        )
+
+        self.__ChangeNameBoxSizer.Add(self.__ChangeNameBoxGrid)
+        self.__gridsizer.Add(self.__ChangeNameBoxSizer, pos=(2, 2), flag=wx.CENTER)
+
+        self.SetSizer(self.__gridsizer)
+
+        # Button Event Handling
+        self.__addButton.Bind(wx.EVT_BUTTON, self.addClient)
+        self.__searchButton.Bind(wx.EVT_BUTTON, self.searchClient)
+        self.__deleteButton.Bind(wx.EVT_BUTTON, self.deleteClient)
+        self.__changeNameButton.Bind(wx.EVT_BUTTON, self.changeName)
+
+    def invalidDniDiag(self):
+        diag = wx.MessageDialog(
+            self, "Tienes que ingresar un DNI válido", "ERROR", wx.ICON_ERROR
+        )
+        diag.ShowModal()
+        diag.Destroy()
+
+    def addClient(self, e):
+        if len(self.__dniAddEntry.GetLineText(0).replace(" ", "")) != 10:
+            self.invalidDniDiag()
+        elif self.__nameAddEntry.GetLineLength(0) == 0:
+            diag = wx.MessageDialog(
+                self, "Tienes que ingresar un Nombre", "ERROR", wx.ICON_ERROR
+            )
+            diag.ShowModal()
+            diag.Destroy()
+        else:
+            listPanel = self.__listPanel
+            if not listPanel.clientList.searchByDni(self.__dniAddEntry.GetLineText(0)):
+                listPanel.clientList.addNode(
+                    listPanel.clientController.createClient(
+                        self.__dniAddEntry.GetLineText(0),
+                        self.__nameAddEntry.GetLineText(0),
+                    )
+                )
+                listPanel.loadClients()
+                diag = wx.MessageDialog(
+                    self, "Cliente Añadido con Éxito", "OPERACION EXITOSA", wx.OK
+                )
+                diag.ShowModal()
+                diag.Destroy()
             else:
-                dls= wx.MessageDialog( self, 'El cliente No encontrado!' , "Dialogo", wx.OK)
-                dls.ShowModal()
-                dls.Destroy()
-        self.txt3.Clear()
-    
-    # Eliminar un cliente    
-    def OnDeleteClient(self,e):
-        # Si se ha encontrado y borrado el cliente de la lista retorna Verdadero
-        # en caso contrario retorna Falso
-        result = self.clientList.deleteNode(self.txt4.GetLineText(0).replace('.','')) 
-        if result:
-            # Las mismas operaciones para limpiar y cargar datos en la grilla descritas en adicionar cliente 
-            self.grid.ClearGrid()
-            self.grid.DeleteRows(pos=0, numRows=self.grid.GetNumberRows(), updateLabels=True)
-            self.grid.InsertRows(pos=0, numRows=len(self.clientList.printList()), updateLabels=True)
-            self.loadData()
-            dls= wx.MessageDialog( self, 'Cliente Eliminado!', "Dialogo", wx.OK)
-            dls.ShowModal() 
-            dls.Destroy() 
+                diag = wx.MessageDialog(
+                    self, "Ya existe un cliente con ese DNI", "ERROR", wx.ICON_ERROR
+                )
+                diag.ShowModal()
+                diag.Destroy()
+
+    def searchClient(self, e):
+        if len(self.__dniSearchEntry.GetLineText(0).replace(" ", "")) != 10:
+            self.invalidDniDiag()
+        elif self.__listPanel.clientList.searchByDni(
+            self.__dniSearchEntry.GetLineText(0)
+        ):
+            client = self.__listPanel.clientList.searchByDni(
+                self.__dniSearchEntry.GetLineText(0)
+            )
+            diag = wx.MessageDialog(
+                self,
+                f"Nombre: {client.getName()}\nD.N.I: {client.getDni()}",
+                "Cliente Encontrado",
+                wx.OK,
+            )
+            diag.ShowModal()
+            diag.Destroy()
         else:
-            dls= wx.MessageDialog( self, 'Cliente No encontrado!', "Dialogo", wx.OK)
-            dls.ShowModal() # Show it
-            dls.Destroy() # finally destroy it when finished 
-        
-        self.txt4.Clear()
-    
-    # Metodo que especifica el comportamiento del about del menu    
-    def OnAbout(self,e):
-        # A message dialog box with an OK button. wx.OK is a standard ID in wxWidgets.
-        dlg = wx.MessageDialog( self, "Un mantenedor de clientes", "Sobre el mantenedor", wx.OK)
-        dlg.ShowModal() # Show it
-        dlg.Destroy() # finally destroy it when finished.
+            diag = wx.MessageDialog(
+                self, "Cliente no encontrado", "ERROR", wx.ICON_ERROR
+            )
+            diag.ShowModal()
+            diag.Destroy()
 
-    # Metodo para salir del aplicativo
-    def OnExit(self,e):
-        self.Close(True)  # Close the frame.
+    def deleteClient(self, e):
+        if len(self.__dniDeleteEntry.GetLineText(0).replace(" ", "")) != 10:
+            self.invalidDniDiag()
+        elif self.__listPanel.clientList.searchByDni(
+            self.__dniDeleteEntry.GetLineText(0)
+        ):
+            self.__listPanel.clientList.deleteNode(self.__dniDeleteEntry.GetLineText(0))
+            self.__listPanel.loadClients()
+        else:
+            diag = wx.MessageDialog(
+                self, "Cliente no encontrado", "ERROR", wx.ICON_ERROR
+            )
+            diag.ShowModal()
+            diag.Destroy()
 
-    # Metodo para cargar la grilla con los datos de la lista de clientes.
-    def loadData(self):
-        for index, value in enumerate(self.clientList.printList()):
-            self.grid.SetCellValue(index, 0, value.getDni())
-            self.grid.SetCellValue(index, 1, value.getName())
-        
+    def changeName(self, e):
+        if len(self.__dniChangeNameEntry.GetLineText(0).replace(" ", "")) != 10:
+            self.invalidDniDiag()
+        elif self.__listPanel.clientList.searchByDni(
+            self.__dniChangeNameEntry.GetLineText(0)
+        ):
+            client = self.__listPanel.clientList.searchByDni(
+                self.__dniChangeNameEntry.GetLineText(0)
+            )
+
+            diag = wx.Dialog(self, title="Actualizar Cliente")
+
+            diagGrid = wx.GridBagSizer(10, 5)
+
+            updateBox = wx.StaticBox(diag, label="ACTUALIZAR NOMBRE")
+
+            updateBoxSizer = wx.StaticBoxSizer(updateBox, wx.VERTICAL)
+
+            nameLabel = wx.StaticText(updateBox, label="NOMBRE:")
+            nameEntry = wx.TextCtrl(updateBox, size=(150, 20), style=wx.TE_LEFT)
+            nameButton = wx.Button(updateBox, label="Actalizar", style=wx.ALIGN_RIGHT)
+
+            diagGrid.Add(nameButton, pos=(1, 1))
+            diagGrid.Add(nameLabel, pos=(0, 0))
+            diagGrid.Add(nameEntry, pos=(0, 1))
+
+            updateBoxSizer.Add(diagGrid)
+            diag.SetSizer(updateBoxSizer)
+
+            def updateName(e):
+                newName = nameEntry.GetLineText(0)
+                client.setName(newName)
+
+                newdiag = wx.MessageDialog(
+                    self, "EXITO", "El cliente se ha actualizado exitosamente", wx.OK
+                )
+                newdiag.ShowModal()
+                newdiag.Destroy()
+
+                diag.Destroy()
+
+            nameButton.Bind(wx.EVT_BUTTON, updateName)
+
+            diag.ShowModal()
+
+            self.__listPanel.loadClients()
+        else:
+            diag = wx.MessageDialog(
+                self, "Cliente no encontrado", "ERROR", wx.ICON_ERROR
+            )
+            diag.ShowModal()
+            diag.Destroy()
+
+
+app = App()
