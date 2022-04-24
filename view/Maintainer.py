@@ -274,13 +274,15 @@ class ClientListControlPanel(wx.Panel):
 
     # Add Client
     def addClient(self, e):
+        dniEntry = self.__dniAddEntry.GetLineText(0)
+        nameEntry = self.__nameAddEntry.GetLineText(0)
         self.clearEntry(self.__dniAddEntry)
         self.clearEntry(self.__nameAddEntry)
         # Delete every white space to verify DNI.
-        if len(self.__dniAddEntry.GetLineText(0).replace(" ", "")) != 10:
+        if len(dniEntry.replace(" ", "")) != 10:
             self.invalidDniDiag()
         # Check for valid name.
-        elif self.__nameAddEntry.GetLineLength(0) == 0:
+        elif len(nameEntry) == 0:
             diag = wx.MessageDialog(
                 self, "Tienes que ingresar un Nombre", "ERROR", wx.ICON_ERROR
             )
@@ -288,11 +290,11 @@ class ClientListControlPanel(wx.Panel):
             diag.Destroy()
         else:
             listPanel = self.__listPanel
-            if not listPanel.clientList.searchByDni(self.__dniAddEntry.GetLineText(0)):
+            if not listPanel.clientList.searchByDni(dniEntry):
                 listPanel.clientList.addNode(
                     listPanel.clientController.createClient(
-                        self.__dniAddEntry.GetLineText(0),
-                        self.__nameAddEntry.GetLineText(0),
+                        dniEntry,
+                        nameEntry,
                     )
                 )
                 listPanel.loadClients()
@@ -309,15 +311,12 @@ class ClientListControlPanel(wx.Panel):
                 diag.Destroy()
 
     def searchClient(self, e):
+        dniEntry = self.__dniSearchEntry.GetLineText(0)
         self.clearEntry(self.__dniSearchEntry)
-        if len(self.__dniSearchEntry.GetLineText(0).replace(" ", "")) != 10:
+        if len(dniEntry.replace(" ", "")) != 10:
             self.invalidDniDiag()
-        elif self.__listPanel.clientList.searchByDni(
-            self.__dniSearchEntry.GetLineText(0)
-        ):
-            client = self.__listPanel.clientList.searchByDni(
-                self.__dniSearchEntry.GetLineText(0)
-            )
+        elif self.__listPanel.clientList.searchByDni(dniEntry):
+            client = self.__listPanel.clientList.searchByDni(dniEntry)
             diag = wx.MessageDialog(
                 self,
                 f"Nombre: {client.getName()}\nD.N.I: {client.getDni()}",
@@ -334,13 +333,12 @@ class ClientListControlPanel(wx.Panel):
             diag.Destroy()
 
     def deleteClient(self, e):
+        dniEntry = self.__dniDeleteEntry.GetLineText(0)
         self.clearEntry(self.__dniDeleteEntry)
-        if len(self.__dniDeleteEntry.GetLineText(0).replace(" ", "")) != 10:
+        if len(dniEntry.replace(" ", "")) != 10:
             self.invalidDniDiag()
-        elif self.__listPanel.clientList.searchByDni(
-            self.__dniDeleteEntry.GetLineText(0)
-        ):
-            self.__listPanel.clientList.deleteNode(self.__dniDeleteEntry.GetLineText(0))
+        elif self.__listPanel.clientList.searchByDni(dniEntry):
+            self.__listPanel.clientList.deleteNode(dniEntry)
             self.__listPanel.loadClients()
         else:
             diag = wx.MessageDialog(
@@ -350,15 +348,12 @@ class ClientListControlPanel(wx.Panel):
             diag.Destroy()
 
     def changeName(self, e):
+        dniEntry = self.__dniChangeNameEntry.GetLineText(0)
         self.clearEntry(self.__dniChangeNameEntry)
-        if len(self.__dniChangeNameEntry.GetLineText(0).replace(" ", "")) != 10:
+        if len(dniEntry.replace(" ", "")) != 10:
             self.invalidDniDiag()
-        elif self.__listPanel.clientList.searchByDni(
-            self.__dniChangeNameEntry.GetLineText(0)
-        ):
-            client = self.__listPanel.clientList.searchByDni(
-                self.__dniChangeNameEntry.GetLineText(0)
-            )
+        elif self.__listPanel.clientList.searchByDni(dniEntry):
+            client = self.__listPanel.clientList.searchByDni(dniEntry)
 
             # Setting up new dialog box for new name entry
             diag = wx.Dialog(self, title="Actualizar Cliente")
