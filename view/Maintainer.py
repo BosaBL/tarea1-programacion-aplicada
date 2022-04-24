@@ -1,8 +1,3 @@
-from cProfile import label
-from cgitb import text
-from turtle import title, update
-from click import style
-from numpy import diag_indices_from
 import wx
 import wx.grid as gridlib
 import wx.lib.masked as masked
@@ -43,10 +38,10 @@ class MainFrame(wx.Frame):
 
         self.__sizer = wx.BoxSizer(wx.VERTICAL)
         self.__sizer.Add(self.__panelSplitter, 0, wx.EXPAND | wx.ALL | wx.BOTTOM, 3)
-        h_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        h_sizer.AddSpacer(3)
+        self.__h_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.__h_sizer.AddSpacer(3)
 
-        self.__sizer.Add(h_sizer)
+        self.__sizer.Add(self.__h_sizer)
         self.SetSizer(self.__sizer)
 
         self.Show()
@@ -133,7 +128,6 @@ class ClientListControlPanel(wx.Panel):
             encoding=wx.FONTENCODING_DEFAULT,
         )
         self.SetFont(self.__font)
-
         self.__gridsizer = wx.GridBagSizer(5, 5)
 
         # Add Client
@@ -231,8 +225,6 @@ class ClientListControlPanel(wx.Panel):
         self.__DeleteClientBoxSizer.Add(self.__DeleteClientBoxGrid)
         self.__gridsizer.Add(self.__DeleteClientBoxSizer, pos=(2, 1), flag=wx.CENTER)
 
-        self.SetSizer(self.__gridsizer)
-
         # Change Client Name
         self.__ChangeNameBox = wx.StaticBox(self, label="Actualizar Cliente")
         self.__ChangeNameBoxSizer = wx.StaticBoxSizer(self.__ChangeNameBox, wx.VERTICAL)
@@ -258,7 +250,9 @@ class ClientListControlPanel(wx.Panel):
         )
 
         self.__ChangeNameBoxSizer.Add(self.__ChangeNameBoxGrid)
-        self.__gridsizer.Add(self.__ChangeNameBoxSizer, pos=(2, 2), flag=wx.CENTER)
+        self.__gridsizer.Add(
+            self.__ChangeNameBoxSizer, pos=(2, 2), flag=wx.CENTER | wx.EXPAND
+        )
 
         self.SetSizer(self.__gridsizer)
 
@@ -275,9 +269,17 @@ class ClientListControlPanel(wx.Panel):
         diag.ShowModal()
         diag.Destroy()
 
+    def clearEntry(self, entry):
+        entry.SetValue("")
+
+    # Add Client
     def addClient(self, e):
+        self.clearEntry(self.__dniAddEntry)
+        self.clearEntry(self.__nameAddEntry)
+        # Delete every white space to verify DNI.
         if len(self.__dniAddEntry.GetLineText(0).replace(" ", "")) != 10:
             self.invalidDniDiag()
+        # Check for valid name.
         elif self.__nameAddEntry.GetLineLength(0) == 0:
             diag = wx.MessageDialog(
                 self, "Tienes que ingresar un Nombre", "ERROR", wx.ICON_ERROR
@@ -307,6 +309,7 @@ class ClientListControlPanel(wx.Panel):
                 diag.Destroy()
 
     def searchClient(self, e):
+        self.clearEntry(self.__dniSearchEntry)
         if len(self.__dniSearchEntry.GetLineText(0).replace(" ", "")) != 10:
             self.invalidDniDiag()
         elif self.__listPanel.clientList.searchByDni(
@@ -331,6 +334,7 @@ class ClientListControlPanel(wx.Panel):
             diag.Destroy()
 
     def deleteClient(self, e):
+        self.clearEntry(self.__dniDeleteEntry)
         if len(self.__dniDeleteEntry.GetLineText(0).replace(" ", "")) != 10:
             self.invalidDniDiag()
         elif self.__listPanel.clientList.searchByDni(
@@ -346,6 +350,7 @@ class ClientListControlPanel(wx.Panel):
             diag.Destroy()
 
     def changeName(self, e):
+        self.clearEntry(self.__dniChangeNameEntry)
         if len(self.__dniChangeNameEntry.GetLineText(0).replace(" ", "")) != 10:
             self.invalidDniDiag()
         elif self.__listPanel.clientList.searchByDni(
@@ -355,6 +360,7 @@ class ClientListControlPanel(wx.Panel):
                 self.__dniChangeNameEntry.GetLineText(0)
             )
 
+            # Setting up new dialog box for new name entry
             diag = wx.Dialog(self, title="Actualizar Cliente")
 
             diagGrid = wx.GridBagSizer(10, 5)
@@ -365,7 +371,7 @@ class ClientListControlPanel(wx.Panel):
 
             nameLabel = wx.StaticText(updateBox, label="NOMBRE:")
             nameEntry = wx.TextCtrl(updateBox, size=(150, 20), style=wx.TE_LEFT)
-            nameButton = wx.Button(updateBox, label="Actalizar", style=wx.ALIGN_RIGHT)
+            nameButton = wx.Button(updateBox, label="Actualizar", style=wx.ALIGN_RIGHT)
 
             diagGrid.Add(nameButton, pos=(1, 1))
             diagGrid.Add(nameLabel, pos=(0, 0))
@@ -374,6 +380,7 @@ class ClientListControlPanel(wx.Panel):
             updateBoxSizer.Add(diagGrid)
             diag.SetSizer(updateBoxSizer)
 
+            # updater function, also closes the dialog on successfull update
             def updateName(e):
                 newName = nameEntry.GetLineText(0)
                 client.setName(newName)
