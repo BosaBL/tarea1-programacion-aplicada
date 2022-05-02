@@ -82,6 +82,8 @@ class ClientListPanel(wx.Panel):
         self.__clientGrid.SetDefaultCellAlignment(horiz=wx.LEFT, vert=wx.ALIGN_BOTTOM)
         self.__clientGrid.SetDefaultCellFont(self.__font)
 
+        self.__clientGrid.EnableEditing(False)
+
         self.loadClients()
 
         # Resizing rows and columns to fit its content (not time efficient as it needs to re-iterate the grid)
