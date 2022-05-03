@@ -20,7 +20,13 @@ class App(wx.App):
 # Main Frame
 class MainFrame(wx.Frame):
     def __init__(self):
-        wx.Frame.__init__(self, None, title="Client Maintainer", size=(500, 600))
+        wx.Frame.__init__(
+            self,
+            None,
+            title="Client Maintainer",
+            size=(500, 600),
+            style=wx.SYSTEM_MENU | wx.CAPTION | wx.CLOSE_BOX,
+        )
 
         self.__panelSplitter = wx.SplitterWindow(self, style=wx.SP_LIVE_UPDATE)
         self.__panelSplitter.SetSashInvisible(True)
